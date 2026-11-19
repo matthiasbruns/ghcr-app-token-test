@@ -1,0 +1,12 @@
+# G1: a branch calls the legitimate reusable workflow at @main.
+name: evil
+on: push
+permissions:
+  contents: read
+jobs:
+  b:
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
+    uses: matthiasbruns/ghcr-app-token-test/.github/workflows/build.yml@main
