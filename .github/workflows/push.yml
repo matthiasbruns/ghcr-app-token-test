@@ -1,0 +1,45 @@
+name: push
+on:
+  workflow_dispatch:
+    inputs:
+      token:
+        description: "github-token or app-token"
+        type: choice
+        options: [github-token, app-token]
+        default: github-token
+      package:
+        description: "Package name under ghcr.io/<owner>/ghcr-app-token-test/"
+        type: string
+        default: baseline
+  push:
+permissions:
+  contents: read
+jobs:
+  push:
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.token == 'app-token' && 'publish' || '' }}
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - id: app
+        if: inputs.token == 'app-token'
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ secrets.APP_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+      - name: Push
+        env:
+          TOKEN: ${{ steps.app.outputs.token || secrets.GITHUB_TOKEN }}
+          PKG: ${{ inputs.package || 'baseline' }}
+          KIND: ${{ inputs.token || 'github-token' }}
+          REF: ${{ github.ref }}
+        run: |
+          echo "token kind: $KIND, ref: $REF"
+          echo "$TOKEN" | docker login ghcr.io -u x-access-token --password-stdin
+          IMG="ghcr.io/${GITHUB_REPOSITORY,,}/${PKG}:${GITHUB_RUN_ID}"
+          docker build -t "$IMG" image
+          docker push "$IMG"
